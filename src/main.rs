@@ -1,51 +1,49 @@
-use signal_hook::iterator::Signals;
 use std::env;
 use std::io;
 use std::net::TcpListener;
 use std::os::unix::io::AsRawFd;
-use std::process::Command;
-use std::thread;
+use tokio::process::Command;
 
 const LISTEN_FDS: &str = "LISTEN_FDS";
 
-fn main() -> io::Result<()>  {
-    let listener = TcpListener::bind("127.0.0.1:8080")?;
-    println!("Listening on {}", listener.local_addr()?);
-    let fd = listener.as_raw_fd();
+fn main() -> io::Result<()> {
+    let std_listener = TcpListener::bind("127.0.0.1:8080")?;
+    println!("Listening on {}", std_listener.local_addr()?);
+    let fd = std_listener.as_raw_fd();
     let flags = unsafe { libc::fcntl(fd, libc::F_GETFD) };
     if flags == -1 {
         panic!("fcntl F_GETFD failed");
     }
-    println!("fd={}, ret={}, fd_cloexec={}, has_f_get_fd={}, new_value={}", fd, flags, libc::FD_CLOEXEC, flags & libc::FD_CLOEXEC, flags & !libc::FD_CLOEXEC);
+    println!(
+        "fd={}, ret={}, fd_cloexec={}, has_f_get_fd={}, new_value={}",
+        fd,
+        flags,
+        libc::FD_CLOEXEC,
+        flags & libc::FD_CLOEXEC,
+        flags & !libc::FD_CLOEXEC
+    );
     let ret = unsafe { libc::fcntl(fd, libc::F_SETFD, flags & !libc::FD_CLOEXEC) };
     if ret == -1 {
         panic!("fcntl F_SETFD failed");
     }
 
-    let signals = Signals::new(&[signal_hook::SIGTERM, signal_hook::SIGUSR2])?;
-    thread::spawn(move || {
-        for signal in &signals {
-            match signal {
-                signal_hook::SIGTERM => {
-                    println!("caught SIGTERM");
-                },
-                signal_hook::SIGUSR2 => {
-                    println!("caught SIGUSR2");
-                },
-                _ => unreachable!(),
+    tokio::runtime::Builder::new()
+        .threaded_scheduler()
+        .core_threads(2)
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async {
+            let mut it = env::args_os();
+            it.next().unwrap();
+            let mut cmd = Command::new(it.next().unwrap());
+            for arg in it {
+                cmd.arg(arg);
             }
-        }
-    });
-
-    let mut it = env::args_os();
-    it.next().unwrap();
-    let mut cmd = Command::new(it.next().unwrap());
-    for arg in it {
-        cmd.arg(arg);
-    }
-    cmd.env(LISTEN_FDS, "1");
-    let mut child = cmd.spawn().expect("failed to create child process");
-    let ecode = child.wait().expect("failed to get exit status");
-    println!("child exit status={}", ecode);
+            cmd.env(LISTEN_FDS, "1");
+            let child = cmd.spawn().expect("failed to create child process");
+            let ecode = child.await.expect("failed to await child process");
+            println!("child exit status={}", ecode);
+        });
     Ok(())
 }
