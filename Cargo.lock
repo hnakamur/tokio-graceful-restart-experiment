@@ -275,6 +275,9 @@ dependencies = [
 [[package]]
 name = "tokio-graceful-restart-experiment"
 version = "0.1.0"
+dependencies = [
+ "libc 0.2.76 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
 [[package]]
 name = "tokio-macros"

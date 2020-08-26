@@ -10,3 +10,6 @@ edition = "2018"
 members = [
     "tcp-echo-server",
 ]
+
+[dependencies]
+libc = "0.2.76"
