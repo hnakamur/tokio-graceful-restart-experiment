@@ -3,6 +3,8 @@ use std::io;
 use std::net::TcpListener;
 use std::os::unix::io::AsRawFd;
 use tokio::process::Command;
+use tokio::signal::unix::{signal, SignalKind};
+use tokio::stream::StreamExt;
 
 const LISTEN_FDS: &str = "LISTEN_FDS";
 
@@ -34,6 +36,22 @@ fn main() -> io::Result<()> {
         .build()
         .unwrap()
         .block_on(async {
+            tokio::spawn(async {
+                let mut hangup_stream = signal(SignalKind::hangup()).expect("cannot get signal hangup");
+                let mut user_defined2_stream = signal(SignalKind::user_defined2()).expect("cannot get signal user_defined2");
+
+                loop {
+                    tokio::select! {
+                        _ = hangup_stream.next() => {
+                            println!("got signal HUP");
+                        }
+                        _ = user_defined2_stream.next() => {
+                            println!("got signal USR2");
+                        }
+                    }
+                }
+            });
+
             let mut it = env::args_os();
             it.next().unwrap();
             let mut cmd = Command::new(it.next().unwrap());
