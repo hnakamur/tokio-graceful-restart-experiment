@@ -46,7 +46,6 @@ fn main() -> io::Result<()> {
             }
             cmd.env(LISTEN_FDS, "1");
             let child = cmd.spawn().expect("failed to create child process");
-            let child_pid = child.id();
 
             let mut hangup_stream = signal(SignalKind::hangup()).expect("cannot get signal hangup");
             let mut terminate_stream =
@@ -62,7 +61,7 @@ fn main() -> io::Result<()> {
                     }
                     _ = terminate_stream.next() => {
                         println!("got signal TERM");
-                        unsafe { kill(child_pid.try_into().unwrap(), SIGTERM) };
+                        unsafe { kill(child.id().try_into().unwrap(), SIGTERM) };
                     }
                     _ = user_defined2_stream.next() => {
                         println!("got signal USR2");
