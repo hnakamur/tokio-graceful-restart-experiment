@@ -1,8 +1,10 @@
+use signal_hook::iterator::Signals;
 use std::env;
 use std::io;
 use std::net::TcpListener;
 use std::os::unix::io::AsRawFd;
 use std::process::Command;
+use std::thread;
 
 const LISTEN_FDS: &str = "LISTEN_FDS";
 
@@ -19,6 +21,21 @@ fn main() -> io::Result<()>  {
     if ret == -1 {
         panic!("fcntl F_SETFD failed");
     }
+
+    let signals = Signals::new(&[signal_hook::SIGTERM, signal_hook::SIGUSR2])?;
+    thread::spawn(move || {
+        for signal in &signals {
+            match signal {
+                signal_hook::SIGTERM => {
+                    println!("caught SIGTERM");
+                },
+                signal_hook::SIGUSR2 => {
+                    println!("caught SIGUSR2");
+                },
+                _ => unreachable!(),
+            }
+        }
+    });
 
     let mut it = env::args_os();
     it.next().unwrap();

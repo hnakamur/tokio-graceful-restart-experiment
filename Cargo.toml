@@ -13,3 +13,4 @@ members = [
 
 [dependencies]
 libc = "0.2.76"
+signal-hook = "0.1.16"
