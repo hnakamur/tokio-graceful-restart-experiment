@@ -1,4 +1,5 @@
-use libc::{kill, SIGTERM};
+use nix::unistd::Pid;
+use nix::sys::signal::{kill, SIGTERM, Signal};
 use std::convert::TryInto;
 use std::env;
 use std::io;
@@ -19,6 +20,10 @@ fn spawn_child() -> io::Result<Child> {
     }
     cmd.env(LISTEN_FDS, "1");
     cmd.spawn()
+}
+
+fn send_signal(child: &Child, sig: Signal) -> nix::Result<()> {
+    kill(Pid::from_raw(child.id().try_into().unwrap()), sig)
 }
 
 fn main() -> io::Result<()> {
@@ -64,13 +69,13 @@ fn main() -> io::Result<()> {
                     }
                     _ = terminate_stream.next() => {
                         println!("got signal TERM");
-                        unsafe { kill(child.id().try_into().unwrap(), SIGTERM) };
+                        send_signal(&child, SIGTERM).expect("send SIGTERM to child");
                         break;
                     }
                     _ = user_defined2_stream.next() => {
                         println!("got signal USR2");
                         let new_child = spawn_child().expect("failed to create new child process");
-                        unsafe { kill(child.id().try_into().unwrap(), SIGTERM) };
+                        send_signal(&child, SIGTERM).expect("send SIGTERM to old child");
                         let status = child.await.expect("child process status");
                         println!("child process exit status={}", status);
                         child = new_child;
