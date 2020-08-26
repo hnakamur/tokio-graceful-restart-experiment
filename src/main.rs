@@ -1,3 +1,5 @@
+use libc::{kill, SIGTERM};
+use std::convert::TryInto;
 use std::env;
 use std::io;
 use std::net::TcpListener;
@@ -36,22 +38,6 @@ fn main() -> io::Result<()> {
         .build()
         .unwrap()
         .block_on(async {
-            tokio::spawn(async {
-                let mut hangup_stream = signal(SignalKind::hangup()).expect("cannot get signal hangup");
-                let mut user_defined2_stream = signal(SignalKind::user_defined2()).expect("cannot get signal user_defined2");
-
-                loop {
-                    tokio::select! {
-                        _ = hangup_stream.next() => {
-                            println!("got signal HUP");
-                        }
-                        _ = user_defined2_stream.next() => {
-                            println!("got signal USR2");
-                        }
-                    }
-                }
-            });
-
             let mut it = env::args_os();
             it.next().unwrap();
             let mut cmd = Command::new(it.next().unwrap());
@@ -60,8 +46,35 @@ fn main() -> io::Result<()> {
             }
             cmd.env(LISTEN_FDS, "1");
             let child = cmd.spawn().expect("failed to create child process");
-            let ecode = child.await.expect("failed to await child process");
-            println!("child exit status={}", ecode);
+            let child_pid = child.id();
+
+            let mut hangup_stream = signal(SignalKind::hangup()).expect("cannot get signal hangup");
+            let mut terminate_stream =
+                signal(SignalKind::terminate()).expect("cannot get signal terminal");
+            let mut user_defined2_stream =
+                signal(SignalKind::user_defined2()).expect("cannot get signal user_defined2");
+            let mut child_stream = signal(SignalKind::child()).expect("cannot get signal child");
+
+            loop {
+                tokio::select! {
+                    _ = hangup_stream.next() => {
+                        println!("got signal HUP");
+                    }
+                    _ = terminate_stream.next() => {
+                        println!("got signal TERM");
+                        unsafe { kill(child_pid.try_into().unwrap(), SIGTERM) };
+                    }
+                    _ = user_defined2_stream.next() => {
+                        println!("got signal USR2");
+                    }
+                    _ = child_stream.next() => {
+                        println!("got signal CHLD");
+                        break;
+                    }
+                }
+            }
+            let status = child.await.expect("failed to await child process");
+            println!("child exit status={}", status);
         });
     Ok(())
 }
