@@ -1,6 +1,8 @@
-use actix_web::{web, App, Responder, HttpServer};
+use actix_web::{web, App, HttpServer, Responder};
 use listenfd::ListenFd;
 use std::net::TcpListener;
+use tokio::signal::unix::{signal, SignalKind};
+use tokio::stream::StreamExt;
 
 async fn index(info: web::Path<(String, u32)>) -> impl Responder {
     format!("Hello {}! id:{}", info.0, info.1)
@@ -15,10 +17,25 @@ async fn main() -> std::io::Result<()> {
         TcpListener::bind("127.0.0.1:8080")?
     };
 
-    HttpServer::new(|| App::new().service(
-        web::resource("/{name}/{id}/index.html").to(index))
-    )
-        .listen(listener)?
-        .run()
-        .await
+    let server =
+        HttpServer::new(|| App::new().service(web::resource("/{name}/{id}/index.html").to(index)))
+            .listen(listener)?
+            .run();
+
+    let srv = server.clone();
+    tokio::spawn(async move {
+        let mut terminate_stream =
+            signal(SignalKind::terminate()).expect("cannot get signal terminal");
+        loop {
+            tokio::select! {
+                _ = terminate_stream.next() => {
+                    println!("http-server got signal TERM, start graceful shutdown");
+                    srv.stop(true).await;
+                    break;
+                },
+            }
+        }
+    });
+
+    server.await
 }

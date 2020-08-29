@@ -10,3 +10,4 @@ edition = "2018"
 actix-rt = "1.1.1"
 actix-web = "2.0.0"
 listenfd = "0.3.3"
+tokio = { version = "0.2", features = ["full"] }

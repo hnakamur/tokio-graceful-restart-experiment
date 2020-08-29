@@ -739,6 +739,7 @@ dependencies = [
  "actix-rt",
  "actix-web",
  "listenfd",
+ "tokio",
 ]
 
 [[package]]
