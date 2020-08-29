@@ -1,17 +1,11 @@
 [package]
-name = "tokio-graceful-restart-experiment"
+name = "http-server"
 version = "0.1.0"
 authors = ["Hiroaki Nakamura <hnakamur@gmail.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[workspace]
-members = [
-    "http-server",
-    "tcp-echo-server",
-]
-
 [dependencies]
-tokio = { version = "0.2", features = ["full"] }
-nix = "0.18.0"
+actix-web = "2.0.0"
+actix-rt = "1.1.1"
