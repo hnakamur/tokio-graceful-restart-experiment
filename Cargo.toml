@@ -12,6 +12,5 @@ members = [
 ]
 
 [dependencies]
-libc = "0.2.76"
 tokio = { version = "0.2", features = ["full"] }
 nix = "0.18.0"

@@ -294,8 +294,8 @@ dependencies = [
 name = "tcp-echo-server"
 version = "0.1.0"
 dependencies = [
- "libc",
  "listenfd",
+ "nix",
  "tokio",
 ]
 
@@ -327,7 +327,6 @@ dependencies = [
 name = "tokio-graceful-restart-experiment"
 version = "0.1.0"
 dependencies = [
- "libc",
  "nix",
  "tokio",
 ]

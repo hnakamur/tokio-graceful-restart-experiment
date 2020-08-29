@@ -1,5 +1,6 @@
+use nix::fcntl::{fcntl, FcntlArg, FdFlag};
+use nix::sys::signal::{kill, Signal, SIGTERM};
 use nix::unistd::Pid;
-use nix::sys::signal::{kill, SIGTERM, Signal};
 use std::convert::TryInto;
 use std::env;
 use std::io;
@@ -30,22 +31,11 @@ fn main() -> io::Result<()> {
     let std_listener = TcpListener::bind("127.0.0.1:8080")?;
     println!("Listening on {}", std_listener.local_addr()?);
     let fd = std_listener.as_raw_fd();
-    let flags = unsafe { libc::fcntl(fd, libc::F_GETFD) };
-    if flags == -1 {
-        panic!("fcntl F_GETFD failed");
-    }
-    println!(
-        "fd={}, ret={}, fd_cloexec={}, has_f_get_fd={}, new_value={}",
-        fd,
-        flags,
-        libc::FD_CLOEXEC,
-        flags & libc::FD_CLOEXEC,
-        flags & !libc::FD_CLOEXEC
-    );
-    let ret = unsafe { libc::fcntl(fd, libc::F_SETFD, flags & !libc::FD_CLOEXEC) };
-    if ret == -1 {
-        panic!("fcntl F_SETFD failed");
-    }
+    let flags = fcntl(fd, FcntlArg::F_GETFD).unwrap();
+    println!("parent fd={}, flags={}", fd, flags);
+    let mut fdflags = FdFlag::from_bits_truncate(flags);
+    fdflags.remove(FdFlag::FD_CLOEXEC);
+    let _ = fcntl(fd, FcntlArg::F_SETFD(fdflags)).unwrap();
 
     tokio::runtime::Builder::new()
         .threaded_scheduler()

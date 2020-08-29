@@ -1,4 +1,5 @@
 use listenfd::ListenFd;
+use nix::fcntl::{FcntlArg, fcntl};
 use std::os::unix::io::AsRawFd;
 use tokio::net::TcpListener;
 use tokio::prelude::*;
@@ -12,11 +13,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         TcpListener::bind("127.0.0.1:8080").await?
     };
     let fd = listener.as_raw_fd();
-    let flags = unsafe { libc::fcntl(fd, libc::F_GETFD) };
-    if flags == -1 {
-        panic!("fcntl F_GETFD failed");
-    }
-    println!("fd={}, ret={}, fd_cloexec={}, has_f_get_fd={}, new_value={}", fd, flags, libc::FD_CLOEXEC, flags & libc::FD_CLOEXEC, flags & !libc::FD_CLOEXEC);
+    let flags = fcntl(fd, FcntlArg::F_GETFD)?;
+    println!("child fd={}, flags={}", fd, flags);
 
     loop {
         let (mut socket, _) = listener.accept().await?;
