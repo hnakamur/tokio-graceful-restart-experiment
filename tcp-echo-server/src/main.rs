@@ -8,8 +8,10 @@ use tokio::prelude::*;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut listenfd = ListenFd::from_env();
     let mut listener = if let Some(listener) = listenfd.take_tcp_listener(0)? {
+        println!("use listener from parent");
         TcpListener::from_std(listener)?
     } else {
+        println!("create listener myself");
         TcpListener::bind("127.0.0.1:8080").await?
     };
     let fd = listener.as_raw_fd();
